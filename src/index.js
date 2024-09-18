@@ -41,12 +41,7 @@ class Optimize {
 
     /** Runtime >=node4.3 */
     const validRunTime = (!this.serverless.service.provider.runtime ||
-      this.serverless.service.provider.runtime === 'nodejs4.3' ||
-      this.serverless.service.provider.runtime === 'nodejs6.10' ||
-      this.serverless.service.provider.runtime === 'nodejs8.10' ||
-      this.serverless.service.provider.runtime === 'nodejs10.x' ||
-      this.serverless.service.provider.runtime === 'nodejs12.x' ||
-      this.serverless.service.provider.runtime === 'nodejs14.x')
+      this.serverless.service.provider.runtime.startsWith('nodejs'))
 
     /** AWS provider and valid runtime check */
     if (validRunTime) {
