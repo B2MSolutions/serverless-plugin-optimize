@@ -18,6 +18,7 @@ const BbPromise = require('bluebird')
 const fs = BbPromise.promisifyAll(require('fs-extra'))
 const path = require('path')
 const resolveFrom = require('resolve-from')
+const enhancedResolve = require('enhanced-resolve')
 
 /**
  * @classdesc Bundle, transpile to ES5 and minify your Serverless functions
@@ -303,7 +304,7 @@ class Optimize {
     this.serverless.cli.log('Optimize: ' + functionObject.name)
 
     /** Optimize object */
-    let optimize = {
+    const optimize = {
       bundle: functionBundle,
       handlerOriginal: functionObject.handler,
       handlerOptimize: functionOptimizeHandler + functionObject.handler.substring(functionFileIndex),
@@ -314,7 +315,7 @@ class Optimize {
     }
 
     /** Function optimize options */
-    let functionOptions = {
+    const functionOptions = {
       exclude: this.optimize.options.exclude,
       external: this.optimize.options.external,
       externalPaths: Object.assign({}, this.optimize.options.externalPaths),
@@ -379,6 +380,25 @@ class Optimize {
       }
     }
 
+    /** Custom resolver with exports field support */
+    const resolver = enhancedResolve.create.sync({
+      extensions: ['.js', '.json'],
+      conditionNames: ['require', 'node', 'default'],
+      exportsFields: ['exports'],
+      mainFields: ['main', 'module'],
+      symlinks: true
+    })
+
+    const customResolve = function (id, parent, cb) {
+      try {
+        const basedir = parent.basedir || path.dirname(parent.filename)
+        const resolved = resolver(basedir, id)
+        cb(null, resolved)
+      } catch (err) {
+        cb(err)
+      }
+    }
+
     /** Browserify */
     const bundler = browserify({
       entries: [functionFile],
@@ -396,6 +416,9 @@ class Optimize {
         Buffer: undefined
       }
     })
+
+    /** Override _bresolve to use custom resolver with exports field support */
+    bundler._bresolve = customResolve
 
     /** Browserify exclude */
     functionOptions.exclude.forEach((exclusion) => {
