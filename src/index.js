@@ -13,12 +13,49 @@
  * @requires 'resolve-from'
  * */
 const babelify = require('babelify')
+const babelParser = require('@babel/parser')
 const browserify = require('browserify')
 const BbPromise = require('bluebird')
 const fs = BbPromise.promisifyAll(require('fs-extra'))
 const path = require('path')
 const resolveFrom = require('resolve-from')
 const enhancedResolve = require('enhanced-resolve')
+
+/**
+ * Custom detective using @babel/parser instead of acorn to support modern
+ * JavaScript syntax (class fields, private methods, etc.) that acorn v7 cannot parse.
+ * Used as the `detect` option passed to module-deps via browserify.
+ *
+ * @param {string} src - Source code to scan for require() calls
+ * @returns {string[]} Array of required module paths
+ */
+function babelDetective (src) {
+  const requires = []
+  const ast = babelParser.parse(src, {
+    sourceType: 'unambiguous',
+    allowReturnOutsideFunction: true
+  })
+  function walk (node) {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) { node.forEach(walk); return }
+    if (
+      node.type === 'CallExpression' &&
+      node.callee && node.callee.type === 'Identifier' &&
+      node.callee.name === 'require' &&
+      node.arguments && node.arguments.length === 1 &&
+      node.arguments[0].type === 'StringLiteral'
+    ) {
+      requires.push(node.arguments[0].value)
+    }
+    for (const key of Object.keys(node)) {
+      if (key !== 'type' && key !== 'start' && key !== 'end' && key !== 'loc' && key !== 'errors') {
+        walk(node[key])
+      }
+    }
+  }
+  walk(ast)
+  return requires
+}
 
 /**
  * @classdesc Bundle, transpile to ES5 and minify your Serverless functions
@@ -409,6 +446,7 @@ class Optimize {
       commondir: false,
       ignoreMissing: true,
       detectGlobals: true,
+      detect: babelDetective,
       insertGlobalVars: { // https://github.com/substack/node-browserify/issues/1472
         process: undefined,
         global: undefined,
