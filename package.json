@@ -26,6 +26,7 @@
   "homepage": "https://github.com/FidelLimited/serverless-plugin-optimize#readme",
   "dependencies": {
     "@babel/core": "^7.28.6",
+    "@babel/parser": "^7.28.6",
     "@babel/preset-env": "^7.28.6",
     "babel-preset-minify": "^0.5.2",
     "babelify": "^10.0.0",
